@@ -8,20 +8,28 @@ ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 # This will be the application window
-app = ctk.CTk()
+app = ctk.CTk(fg_color="white")
+app.iconbitmap("cnc-machine.ico")
 app.title("ProtoMill CNC")
-app.geometry("480x320")
+app.geometry("480x320")  # Start with a smaller window size (480x320)
 app.resizable(True, True)  # Allow window resizing
+
+# Load the background image (1920x1080)
+bg_image_path = "background.png"  # Replace with your actual image path
+bg_image = Image.open(bg_image_path)
+bg_photo = ImageTk.PhotoImage(bg_image)
+
+
 
 # Create a fixed-size frame to hold the content
 content_frame = ctk.CTkFrame(app, width=480, height=320, fg_color="transparent")
 content_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-# Label
+# Label inside the content frame
 label = ctk.CTkLabel(content_frame, text="ProtoMill CNC", font=("Montserrat Bold", 25), text_color="black")
 label.place(relx=0.5, rely=0.3, anchor="center")
 
-# Icons for buttons
+# Load icons for buttons
 cncImg = Image.open("cnc-machine.png")
 ddImg = Image.open("loupe.png")
 
@@ -34,10 +42,14 @@ bCNCButton.place(relx=0.5, rely=0.5, anchor="center")
 
 # inspectMillButton
 inspectMillButton = ctk.CTkButton(content_frame, text="Defect Detection", font=("Montserrat", 15), text_color="black",
-                                   corner_radius=10, fg_color="white",
-                                   border_color="#060270", hover_color="#CECECE",
-                                   border_width=2, image=ctk.CTkImage(dark_image=ddImg, light_image=ddImg))
+                                  corner_radius=10, fg_color="white",
+                                  border_color="#060270", hover_color="#CECECE",
+                                  border_width=2, image=ctk.CTkImage(dark_image=ddImg, light_image=ddImg))
 inspectMillButton.place(relx=0.5, rely=0.7, anchor="center")
+
+# Adding the fixed bottom-right label
+bottom_label = ctk.CTkLabel(app, text="© 3106", font=("Montserrat", 12), text_color="gray", fg_color="transparent")
+bottom_label.place(relx=0.99, rely=1.0, anchor="se")  # Position at bottom-right
 
 # Run the application
 app.mainloop()
