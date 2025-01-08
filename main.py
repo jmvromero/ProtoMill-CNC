@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from PIL import Image, ImageTk
+import subprocess  # Import subprocess to run the Streamlit app
 
 # Appearance mode (It could be Dark or Light based on the system)
 ctk.set_appearance_mode("Light")
@@ -19,8 +20,6 @@ bg_image_path = "background.png"  # Replace with your actual image path
 bg_image = Image.open(bg_image_path)
 bg_photo = ImageTk.PhotoImage(bg_image)
 
-
-
 # Create a fixed-size frame to hold the content
 content_frame = ctk.CTkFrame(app, width=480, height=320, fg_color="transparent")
 content_frame.place(relx=0.5, rely=0.5, anchor="center")
@@ -33,6 +32,10 @@ label.place(relx=0.5, rely=0.3, anchor="center")
 cncImg = Image.open("cnc-machine.png")
 ddImg = Image.open("loupe.png")
 
+# Function to launch Streamlit app
+def launch_defect_detection():
+    subprocess.Popen(["streamlit", "run", "app.py"])  # Replace "app.py" with your Streamlit app's filename
+
 # bCNCButton
 bCNCButton = ctk.CTkButton(content_frame, text="bCNC", font=("Montserrat", 15), text_color="black",
                            corner_radius=10, fg_color="white",
@@ -40,11 +43,12 @@ bCNCButton = ctk.CTkButton(content_frame, text="bCNC", font=("Montserrat", 15), 
                            border_width=2, image=ctk.CTkImage(dark_image=cncImg, light_image=cncImg))
 bCNCButton.place(relx=0.5, rely=0.5, anchor="center")
 
-# inspectMillButton
+# Defect Detection Button (inspectMillButton)
 inspectMillButton = ctk.CTkButton(content_frame, text="Defect Detection", font=("Montserrat", 15), text_color="black",
                                   corner_radius=10, fg_color="white",
                                   border_color="#060270", hover_color="#CECECE",
-                                  border_width=2, image=ctk.CTkImage(dark_image=ddImg, light_image=ddImg))
+                                  border_width=2, image=ctk.CTkImage(dark_image=ddImg, light_image=ddImg),
+                                  command=launch_defect_detection)  # Call the function when clicked
 inspectMillButton.place(relx=0.5, rely=0.7, anchor="center")
 
 # Adding the fixed bottom-right label
