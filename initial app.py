@@ -53,7 +53,7 @@ bCNCButton = ctk.CTkButton(content_frame, text="bCNC", font=("Montserrat", 15), 
                            corner_radius=10, fg_color="white",
                            border_color="#060270", hover_color="#CECECE",
                            border_width=2, image=ctk.CTkImage(dark_image=cncImg, light_image=cncImg),
-                           command=launch_bcnc())  # Command to launch bCNC
+                           command=launch_bcnc)  # Pass the reference to the function, not a call
 bCNCButton.place(relx=0.5, rely=0.5, anchor="center")
 
 # Define Defect Detection Button (inspectMillButton)
