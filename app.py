@@ -29,7 +29,7 @@ def home_page():
     next_button = st.button("Next")
     if next_button:
         st.session_state.page = "template_upload"  # Go to Template Image Upload Page
-        st.experimental_rerun()  # Use st.rerun() instead of deprecated experimental_rerun
+        st.rerun()  # Use st.rerun() instead of deprecated experimental_rerun
 
 # Template Image Upload Page
 def template_image_upload_page():
@@ -39,7 +39,7 @@ def template_image_upload_page():
     back_button = st.button("Back")
     if back_button:
         st.session_state.page = "home"  # Navigate to Home Page
-        st.experimental_rerun()  # Use st.rerun() instead of deprecated experimental_rerun
+        st.rerun()  # Use st.rerun() instead of deprecated experimental_rerun
 
     # Upload template PCB image
     uploaded_template_img = st.file_uploader("Choose a template PCB image...", type=["jpg", "png", "jpeg"])
@@ -47,26 +47,26 @@ def template_image_upload_page():
     if uploaded_template_img is not None:
         # Open the uploaded image
         template_image = Image.open(uploaded_template_img)
-        st.image(template_image, caption="Uploaded Template Image.", use_column_width=True)
+        st.image(template_image, caption="Uploaded Template Image.", use_container_width=True)
 
         # Convert the uploaded image to an OpenCV format (numpy array)
         img_array = np.array(template_image)
 
         # Step 1: Convert to Grayscale
         gray_image = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-        st.image(gray_image, caption="Grayscale Template Image", use_column_width=True)
+        st.image(gray_image, caption="Grayscale Template Image", use_container_width=True)
 
         # Step 2: Resize the image
         resized_image = cv2.resize(gray_image, (750, 450))
-        st.image(resized_image, caption="Resized Template Image", use_column_width=True)
+        st.image(resized_image, caption="Resized Template Image", use_container_width=True)
 
         # Step 3: Apply Gaussian Blur
         blurred_image = cv2.GaussianBlur(resized_image, (3, 3), 0)
-        st.image(blurred_image, caption="Blurred Template Image (Gaussian)", use_column_width=True)
+        st.image(blurred_image, caption="Blurred Template Image (Gaussian)", use_container_width=True)
 
         # Step 4: Apply Thresholding
         _, thresholded_image = cv2.threshold(blurred_image, 128, 255, cv2.THRESH_BINARY)
-        st.image(thresholded_image, caption="Thresholded Template Image", use_column_width=True)
+        st.image(thresholded_image, caption="Thresholded Template Image", use_container_width=True)
 
         # Button to continue to the next page
         next_button = st.button("Next")
@@ -75,7 +75,7 @@ def template_image_upload_page():
             st.session_state.template_img = uploaded_template_img
             # Navigate to the Capture Output Image page
             st.session_state.page = "capture_output_image"
-            st.experimental_rerun()  # Use st.rerun() instead of deprecated experimental_rerun
+            st.rerun()  # Use st.rerun() instead of deprecated experimental_rerun
 
 
 def capture_output_image_page():
@@ -84,7 +84,7 @@ def capture_output_image_page():
     # Back button to return to the Template Image Upload Page
     if st.button("Back"):
         st.session_state.page = "template_upload"
-        st.experimental_rerun()
+        st.rerun()
 
     # Camera input to capture the output PCB image
     st.subheader("Capture Output Image from Camera")
@@ -110,7 +110,7 @@ def capture_output_image_page():
             st.write("Image uploaded successfully.")
 
         # Display the selected image
-        st.image(image, caption="Selected Output Image", use_column_width=True)
+        st.image(image, caption="Selected Output Image", use_container_width=True)
 
         # Store the selected image in session state
         st.session_state.output_img = image
@@ -126,7 +126,7 @@ def capture_output_image_page():
             aspect_ratio=None  # Free aspect-ratio cropping
         )
         st.subheader("Cropped Image")
-        st.image(cropped_image, caption="Cropped Output PCB Image", use_column_width=True)
+        st.image(cropped_image, caption="Cropped Output PCB Image", use_container_width=True)
 
         # Store the cropped image in session state
         st.session_state.cropped_img = cropped_image
@@ -136,7 +136,7 @@ def capture_output_image_page():
         if st.button("Save and Proceed"):
             if "cropped_img" in st.session_state:
                 st.session_state.page = "image_alignment"
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.warning("Please either capture an image using your camera or upload one.")
 
@@ -147,7 +147,7 @@ def image_alignment():
 
     if st.button("Back"):
         st.session_state.page = "capture_output_image"
-        st.experimental_rerun()
+        st.rerun()
 
     # Access the uploaded template image from session state
     if "template_img" and "cropped_img" in st.session_state:
@@ -156,7 +156,7 @@ def image_alignment():
         gray_image1 = cv2.cvtColor(cropped_opencv_image, cv2.COLOR_RGB2GRAY)
         resized_image1 = cv2.resize(gray_image1, (750, 450))
         img1 = cv2.GaussianBlur(resized_image1, (3, 3), 0)
-        st.image(img1, caption="Grayscale Image", use_column_width=True)
+        st.image(img1, caption="Grayscale Image", use_container_width=True)
 
         #Displaying the template image
         uploaded_file = st.session_state.template_img  # Retrieve the uploaded file
@@ -166,7 +166,7 @@ def image_alignment():
         resized_image2 = cv2.resize(gray_image2, (750, 450))
         blurred_image2 = cv2.GaussianBlur(resized_image2, (3, 3), 0)
         _, img2 = cv2.threshold(blurred_image2, 128, 255, cv2.THRESH_BINARY)
-        st.image(img2, caption="Grayscale Image from Template Upload Page", use_column_width=True)
+        st.image(img2, caption="Grayscale Image from Template Upload Page", use_container_width=True)
 
         #ORB Detection
         st.subheader("ORB Detection")
@@ -175,12 +175,12 @@ def image_alignment():
         #Template Image
         kp1, des1 = orb.detectAndCompute(img2, None)
         img_template = cv2.drawKeypoints(img2, kp1, None, color=(0, 255, 0), flags=0)
-        st.image(img_template, caption="ORB Detection", use_column_width=True)
+        st.image(img_template, caption="ORB Detection", use_container_width=True)
 
         #Captured Image
         kp2, des2 = orb.detectAndCompute(img1, None)
         img_captured = cv2.drawKeypoints(img1, kp2, None, color=(0, 255, 0), flags=0)
-        st.image(img_captured, caption="ORB Detection", use_column_width=True)
+        st.image(img_captured, caption="ORB Detection", use_container_width=True)
 
         #Feature Matching
         st.subheader("Feature Matching")
@@ -188,7 +188,7 @@ def image_alignment():
         matches = bf.match(des1, des2)
         matches = sorted(matches, key=lambda x: x.distance)
         img3 = cv2.drawMatches(img2, kp1, img1, kp2, matches[:10], None, flags=2)
-        st.image(img3, caption="Feature Matching", use_column_width=True)
+        st.image(img3, caption="Feature Matching", use_container_width=True)
 
         #Homography Calculation
         st.subheader("Homography Calculation")
@@ -210,11 +210,11 @@ def image_alignment():
             img4_rgb = cv2.cvtColor(img4, cv2.COLOR_GRAY2RGB)
 
             # Display warped image in Streamlit
-            st.image(img4_rgb, caption="Warped Image using Homography", use_column_width=True)
+            st.image(img4_rgb, caption="Warped Image using Homography", use_container_width=True)
 
             # Optionally, overlay or compare with the template
             overlay = cv2.addWeighted(img2, 0.5, img4, 0.5, 0)  # Alpha blend for visualization
-            st.image(overlay, caption="Overlay of Warped Image and Template", use_column_width=True)
+            st.image(overlay, caption="Overlay of Warped Image and Template", use_container_width=True)
             st.session_state.warped_image = img4  # Save the warped align image
             st.session_state.template_image = img2  # Save the processed template image
         else:
@@ -232,7 +232,7 @@ def image_alignment():
     if st.button("Next"):
         # Set the session state to the next page (e.g., "image_subtraction_and_results")
         st.session_state.page = "image_subtraction_and_results"
-        st.experimental_rerun()
+        st.rerun()
 
 
 def image_subtraction_and_results():
@@ -241,7 +241,7 @@ def image_subtraction_and_results():
     # Back button to return to the previous page
     if st.button("Back"):
         st.session_state.page = "image_alignment"
-        st.experimental_rerun()
+        st.rerun()
 
     # Ensure that both template image (`img2`) and aligned image (`img4`) exist.
     if "template_image" in st.session_state and "warped_image" in st.session_state:
@@ -323,7 +323,7 @@ def image_subtraction_and_results():
     # Add a 'Continue' button to go back to the home page
     if st.button("Continue"):
         st.session_state.page = "home"
-        st.experimental_rerun()
+        st.rerun()
 
 
 
