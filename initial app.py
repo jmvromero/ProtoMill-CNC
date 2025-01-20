@@ -83,7 +83,7 @@ inspectMillButton = ctk.CTkButton(content_frame, text="Defect Detection", font=(
 inspectMillButton.place(relx=0.5, rely=0.7, anchor="center")
 
 
-launch_bcnc()  # Automatically start bCNC
+launch_bCNC()  # Automatically start bCNC
 launch_defect_detection()  # Automatically start defect detection
 # Run the application
 app.mainloop()
