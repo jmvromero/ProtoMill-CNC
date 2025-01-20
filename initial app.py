@@ -43,18 +43,20 @@ cncImg = Image.open("cnc-machine.png")
 ddImg = Image.open("loupe.png")
 
 # Function to launch bCNC
-def launch_bcnc():
+def launch_bCNC():
     try:
-        subprocess.Popen(["bCNC"])  # Launch the bCNC application
+        # Use the absolute path to the Candle executable
+        subprocess.Popen(["bCNC"])
     except FileNotFoundError:
-        print("bCNC application not found. Ensure it's installed and added to PATH.")
+        print("Candle application not found. Ensure the path is correct.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
 
+
 # Function to launch the defect detection app
 def launch_defect_detection():
-    subprocess.Popen(["streamlit", "run", "app.py"])
+    subprocess.Popen(["streamlit", "run", "yolo-app.py"])
 
 # Function to launch FlatCAM
 
@@ -62,12 +64,12 @@ def launch_defect_detection():
 
 
 
-# Define bCNCButton with command tied to launch_bCNC
+# Define bCNCButton with command tied to launch_candle
 bCNCButton = ctk.CTkButton(content_frame, text="bCNC", font=("Montserrat", 15), text_color="black",
                            corner_radius=10, fg_color="white",
                            border_color="#060270", hover_color="#CECECE",
                            border_width=2, image=ctk.CTkImage(dark_image=cncImg, light_image=cncImg),
-                           command=launch_bcnc)  # Pass the reference to the function, not a call
+                           command=launch_bCNC)  # Pass the reference to the function, not a call
 bCNCButton.place(relx=0.5, rely=0.5, anchor="center")
 
 # Define Defect Detection Button (inspectMillButton)
