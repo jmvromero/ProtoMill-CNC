@@ -1,0 +1,14 @@
+path: /content/drive/MyDrive/DsPCBSD+
+train: /content/drive/MyDrive/DsPCBSD+/Data_YOLO/images/train
+val: /content/drive/MyDrive/DsPCBSD+/Data_YOLO/images/val
+
+names:
+  0: sh
+  1: sp
+  2: sc
+  3: op
+  4: mb
+  5: hb
+  6: cs
+  7: cfo
+  8: bmfo
