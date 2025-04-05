@@ -4,26 +4,30 @@ from PIL import Image
 import numpy as np
 from streamlit_cropper import st_cropper
 from ultralytics import YOLO
-from smbus2 import SMBus
-from RPLCD.i2c import CharLCD  # Library for I2C LCD communication
+import os
+# from smbus2 import SMBus
+# from RPLCD.i2c import CharLCD  # Library for I2C LCD communication
 
-# Setup the I2C LCD with appropriate I2C address and port
-bus = SMBus(1)  # Use I2C bus 1 (on Raspberry Pi)
-lcd_address = 0x27  # Replace with your LCD's I2C address
-lcd = CharLCD('PCF8574', lcd_address, auto_linebreaks=True)
-
-
-# Function to initialize LCD display
-def setup_lcd():
-    try:
-        lcd.clear()  # Clear any existing message on the LCD
-        lcd.write_string("ProtoMill CNC\nInitializing...")
-    except Exception as e:
-        print(f"Error initializing LCD: {e}")
+# # Setup the I2C LCD with appropriate I2C address and port
+# bus = SMBus(1)  # Use I2C bus 1 (on Raspberry Pi)
+# lcd_address = 0x27  # Replace with your LCD's I2C address
+# lcd = CharLCD('PCF8574', lcd_address, auto_linebreaks=True)
 
 
-model= YOLO(r"C:\Users\JULIA-ANN\PycharmProjects\ProtoMill-CNC\train3\weights\best.pt")
+# # Function to initialize LCD display
+# def setup_lcd():
+#     try:
+#         lcd.clear()  # Clear any existing message on the LCD
+#         lcd.write_string("ProtoMill CNC\nInitializing...")
+#     except Exception as e:
+#         print(f"Error initializing LCD: {e}")
 
+# Get current script's directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Path construction for GitHub compatibility
+model_path = os.path.join(script_dir, "train3", "weights", "best.pt")
+model = YOLO(model_path)
 
 # Home Page (Overview & Introduction)
 def home_page():

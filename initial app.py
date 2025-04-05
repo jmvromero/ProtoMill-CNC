@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from PIL import Image, ImageTk
 import subprocess  # Import subprocess to run the Streamlit app
-from RPLCD.i2c import CharLCD
 
 
 # Appearance mode (It could be Dark or Light based on the system)
@@ -17,13 +16,13 @@ app.title("ProtoMill CNC")
 app.geometry("480x320")  # Start with a smaller window size (480x320)
 app.resizable(False, False)  # Allow window resizing
 
-# Initialize the LCD and display a welcome message
-lcd = CharLCD('PCF8574', 0x27)
-lcd.write_string("Welcome to")
-lcd.crlf()
-lcd.write_string("ProtoMill CNC")
-lcd.crlf()
-lcd.backlight_enabled = True
+# # Initialize the LCD and display a welcome message
+# lcd = CharLCD('PCF8574', 0x27)
+# lcd.write_string("Welcome to")
+# lcd.crlf()
+# lcd.write_string("ProtoMill CNC")
+# lcd.crlf()
+# lcd.backlight_enabled = True
 
 # Load the background image (1920x1080)
 bg_image_path = "background.png"  # Replace with your actual image path
@@ -44,23 +43,31 @@ ddImg = Image.open("loupe.png")
 
 # Function to launch bCNC
 def launch_bCNC():
-    try:
-        # Use the absolute path to the Candle executable
-        subprocess.Popen(["bCNC"])
-    except FileNotFoundError:
-        print("Candle application not found. Ensure the path is correct.")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+    subprocess.Popen(["bCNC"])
+    # try:
+    #     # Update LCD display
+    #     lcd.clear()  # Clear the previous message
+    #     lcd.write_string("Running bCNC...")
+    #     lcd.crlf()
+    #     lcd.write_string("Please wait...")
+    #
+    #     # Launch bCNC application
+    #     subprocess.Popen(["bCNC"])
+    # except FileNotFoundError:
+    #     print("bCNC application not found. Ensure the path is correct.")
+    #     lcd.clear()
+    #     lcd.write_string("Error: bCNC not found")
+    # except Exception as e:
+    #     print(f"An unexpected error occurred: {e}")
+    #     lcd.clear()
+    #     lcd.write_string("An error occurred")
+
 
 
 
 # Function to launch the defect detection app
 def launch_defect_detection():
     subprocess.Popen(["streamlit", "run", "yolo-app.py"])
-
-# Function to launch FlatCAM
-
-
 
 
 
@@ -82,8 +89,5 @@ inspectMillButton = ctk.CTkButton(content_frame, text="Defect Detection", font=(
 
 inspectMillButton.place(relx=0.5, rely=0.7, anchor="center")
 
-
-launch_bCNC()  # Automatically start bCNC
-launch_defect_detection()  # Automatically start defect detection
 # Run the application
 app.mainloop()
