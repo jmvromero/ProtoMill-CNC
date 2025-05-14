@@ -5,22 +5,22 @@ import numpy as np
 from streamlit_cropper import st_cropper
 from ultralytics import YOLO
 import os
-# from smbus2 import SMBus
-# from RPLCD.i2c import CharLCD  # Library for I2C LCD communication
-
-# # Setup the I2C LCD with appropriate I2C address and port
-# bus = SMBus(1)  # Use I2C bus 1 (on Raspberry Pi)
-# lcd_address = 0x27  # Replace with your LCD's I2C address
-# lcd = CharLCD('PCF8574', lcd_address, auto_linebreaks=True)
+import pandas as pd
+import seaborn as sns
+import plotly.express as px
+from datetime import datetime
+import matplotlib.pyplot as plt
 
 
-# # Function to initialize LCD display
-# def setup_lcd():
-#     try:
-#         lcd.clear()  # Clear any existing message on the LCD
-#         lcd.write_string("ProtoMill CNC\nInitializing...")
-#     except Exception as e:
-#         print(f"Error initializing LCD: {e}")
+# Add after your existing session state initialization
+if "defect_data" not in st.session_state:
+    st.session_state.defect_data = pd.DataFrame(columns=[
+        "timestamp", "defect_type", "confidence",
+        "location_x", "location_y", "image_path"
+    ])
+
+if "uncertain_samples" not in st.session_state:
+    st.session_state.uncertain_samples = []
 
 # Get current script's directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,17 +29,58 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(script_dir, "train3", "weights", "best.pt")
 model = YOLO(model_path)
 
+## Put this right after your imports
+# Data directory setup
+DATA_DIR = "data"
+os.makedirs(DATA_DIR, exist_ok=True)
+CSV_PATH = os.path.join(DATA_DIR, "defect_data.csv")
+
+def load_defect_data():
+    try:
+        if os.path.exists(CSV_PATH):
+            return pd.read_csv(CSV_PATH)
+        return pd.DataFrame(columns=[
+            "timestamp", "defect_type", "confidence",
+            "location_x", "location_y", "image_path"
+        ])
+    except Exception as e:
+        st.error(f"Error loading defect data: {str(e)}")
+        return pd.DataFrame(columns=[
+            "timestamp", "defect_type", "confidence",
+            "location_x", "location_y", "image_path"
+        ])
+
+if "defect_data" not in st.session_state:
+    st.session_state.defect_data = load_defect_data()
+
+
+def save_defect_data():
+    try:
+        # Ensure directory exists
+        os.makedirs(DATA_DIR, exist_ok=True)
+
+        # Save to CSV
+        st.session_state.defect_data.to_csv(CSV_PATH, index=False)
+
+    except PermissionError:
+        st.error("⚠️ Permission denied: Cannot save data file. Please check write permissions.")
+    except Exception as e:
+        st.error(f"⚠️ Error saving defect data: {str(e)}")
+
+
 # Home Page (Overview & Introduction)
 def home_page():
     # Set the title and introductory text
     st.title("InspectMill")
     st.write("""
-    Welcome to the InspectMill, a PCB Defect Detection Tool powered by OpenCV and Streamlit. This tool helps you to detect defects in your PCB designs by comparing a template PCB image with an output image from your CNC machine.
+    Welcome to the InspectMill, a PCB Defect Detection Tool powered by OpenCV and Streamlit. 
+    This tool helps you to detect defects in your PCB designs by comparing a template PCB image 
+    with an output image from your CNC machine.
     """)
 
     st.write("""
     ### Instructions:
-    1. **Capture the Output Image**:Capture the PCB output image from your CNC machine.
+    1. **Capture the Output Image**: Capture the PCB output image from your CNC machine.
     2. **Detection from Yolo-V8**: The app will use the model to detect the defects.
     3. **Results**: View the detected defects and download the results.
     """)
@@ -47,8 +88,24 @@ def home_page():
     # Next Button to go to the Template Image Upload page
     next_button = st.button("Next")
     if next_button:
-        st.session_state.page = "capture_output_image"  # Go to Capture Output Image PAge
-        st.rerun()  # Use st.rerun() instead of deprecated experimental_rerun
+        st.session_state.page = "capture_output_image"
+        st.rerun()
+
+    # Add navigation buttons after your existing content
+    st.markdown("---")
+    st.subheader("Advanced Features")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📊 View Analytics Dashboard"):
+            st.session_state.page = "analytics"
+            st.rerun()
+
+    with col2:
+        if st.button("🔍 Review Uncertain Detections"):
+            st.session_state.page = "review_uncertain"
+            st.rerun()
+
 
 def capture_output_image_page():
     st.title("Capture or Detect PCB Defects")
@@ -92,7 +149,7 @@ def capture_output_image_page():
             annotated_frame = yolo_results[0].plot()
 
             # Resize the annotated frame for Streamlit rendering
-            annotated_frame = cv2.resize(annotated_frame, (640, 480))  # Lower resolution for UI
+            annotated_frame = cv2.resize(annotated_frame, (640, 480))
 
             # Update the live feed
             FRAME_WINDOW.image(annotated_frame, channels="BGR", use_container_width=True)
@@ -117,22 +174,16 @@ def capture_output_image_page():
             st.subheader("Selected PCB Image")
 
             if camera_image:
-                # Use the camera-captured image
                 image = Image.open(camera_image)
                 st.write("Image captured using the camera.")
             elif uploaded_image:
-                # Use the uploaded image
                 image = Image.open(uploaded_image)
                 st.write("Image uploaded successfully.")
             else:
-                # Use the previously captured frame from real-time detection
                 image = st.session_state.captured_frame
                 st.write("Using the captured frame from Real-Time Detection.")
 
-            # Display the image
             st.image(image, caption="Selected Image", use_container_width=True)
-
-            # Save the selected image to session state
             st.session_state.output_img = image
 
             # Cropping functionality
@@ -152,16 +203,42 @@ def capture_output_image_page():
 
             # Dynamic Scaling Based on Captured Image Dimensions
             image_height, image_width = cropped_bgr.shape[:2]
-            scaling_factor = min(image_width / 640, image_height / 480)  # Baseline scaling reference
+            scaling_factor = min(image_width / 640, image_height / 480)
 
             # YOLO Prediction with Scaled Detection Results
             results = model.predict(source=cropped_bgr, save=False, conf=0.25)
+
             if len(results[0].boxes) > 0:
-                # Adjust annotation size
-                annotated_cropped = results[0].plot(
-                    font_size=int(12 * scaling_factor)  # Scale label font size
-                )
-                st.image(annotated_cropped, caption="Detected Defects on Cropped Image", use_container_width=True)
+                annotated_cropped = results[0].plot(font_size=int(12 * scaling_factor))
+
+                # Data collection
+                for box in results[0].boxes:
+                    # In your detection loop where you add new defects:
+                    new_row = {
+                        "timestamp": datetime.now().isoformat(),
+                        "defect_type": model.names[int(box.cls)],
+                        "confidence": float(box.conf),
+                        "location_x": int((box.xywh[0][0] + box.xywh[0][2] / 2).item()),
+                        "location_y": int((box.xywh[0][1] + box.xywh[0][3] / 2).item()),
+                        "image_path": f"defects/{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+                    }
+                    st.session_state.defect_data = pd.concat(
+                        [st.session_state.defect_data, pd.DataFrame([new_row])],
+                        ignore_index=True
+                    )
+                    save_defect_data()  # Add this right after adding new data
+
+                    # Flag low-confidence samples for review
+                    if float(box.conf) < 0.4:
+                        # Create annotated image for review
+                        annotated_img = results[0].plot()
+                        st.session_state.uncertain_samples.append({
+                            "image": annotated_img,  # Store the annotated image
+                            "prediction": new_row
+                        })
+
+                st.image(annotated_cropped, caption="Detected Defects on Cropped Image",
+                         use_container_width=True)
                 st.write(f"Detected Defects: {len(results[0].boxes)}")
             else:
                 st.info("No defects detected in the cropped image.")
@@ -169,9 +246,90 @@ def capture_output_image_page():
     # Next Button to go to the Template Image Upload page
     next_button = st.button("Continue to home page")
     if next_button:
-        st.session_state.page = "home"  # Go to Capture Output Image PAge
-        st.rerun()  # Use st.rerun() instead of deprecated experimental_rerun
+        st.session_state.page = "home"
+        st.rerun()
 
+
+def analytics_page():
+    st.title("Defect Analytics Dashboard")
+
+    if st.button("← Back to Home"):
+        st.session_state.page = "home"
+        st.rerun()
+
+    # Single download button for CSV
+    try:
+        if os.path.exists(CSV_PATH):
+            with open(CSV_PATH, "rb") as f:
+                st.download_button(
+                    label="📥 Download Data (CSV)",
+                    data=f,
+                    file_name="defect_data.csv",
+                    mime="text/csv",
+                    help="Download all defect data as CSV file"
+                )
+        else:
+            st.warning("No data available yet - detect some defects first")
+    except Exception as e:
+        st.error(f"⚠️ Error preparing download: {str(e)}")
+
+
+    # Rest of your existing analytics code...
+    if st.session_state.defect_data.empty:
+        st.warning("No defect data collected yet!")
+        return
+
+    # Your existing visualization code remains the same...
+    defect_counts = st.session_state.defect_data["defect_type"].value_counts()
+    st.subheader("Defect Distribution")
+    fig = px.bar(defect_counts, x=defect_counts.index, y=defect_counts.values)
+    st.plotly_chart(fig)
+
+    # Temporal Trends
+    st.subheader("Defect Trends Over Time")
+    temporal_data = st.session_state.defect_data.groupby(
+        [pd.to_datetime(st.session_state.defect_data["timestamp"]).dt.date, "defect_type"]
+    ).size().unstack()
+    st.line_chart(temporal_data)
+
+    # Heatmap Visualization
+    st.subheader("Defect Location Heatmap")
+    plt.figure(figsize=(10, 6))
+    sns.kdeplot(
+        x=st.session_state.defect_data["location_x"],
+        y=st.session_state.defect_data["location_y"],
+        cmap="Reds", fill=True
+    )
+    st.pyplot(plt.gcf())
+
+
+def review_uncertain_page():
+    st.title("Review Uncertain Detections")
+
+    if st.button("← Back to Home"):
+        st.session_state.page = "home"
+        st.rerun()
+
+    if not st.session_state.uncertain_samples:
+        st.info("No uncertain detections to review!")
+        return
+
+    st.write(f"Found {len(st.session_state.uncertain_samples)} uncertain detections (confidence < 0.4)")
+
+    for i, sample in enumerate(st.session_state.uncertain_samples[:10]):  # Show first 10 samples
+        st.markdown("---")
+        st.subheader(f"Sample {i + 1}")
+
+        # Convert BGR to RGB for display (since we stored the annotated image)
+        img_rgb = cv2.cvtColor(sample["image"], cv2.COLOR_BGR2RGB)
+        st.image(img_rgb, caption="Detected defect with bounding box", use_container_width=True)
+
+        st.write(f"""
+        - **Predicted defect**: {sample["prediction"]["defect_type"]}
+        - **Confidence**: {sample["prediction"]["confidence"]:.2f}
+        - **Location**: ({sample["prediction"]["location_x"]}, {sample["prediction"]["location_y"]})
+        - **Timestamp**: {sample["prediction"]["timestamp"]}
+        """)
 
 
 # Initialize session state if it's the first time
@@ -183,6 +341,7 @@ if st.session_state.page == "home":
     home_page()
 elif st.session_state.page == "capture_output_image":
     capture_output_image_page()
-
-
-
+elif st.session_state.page == "analytics":
+    analytics_page()
+elif st.session_state.page == "review_uncertain":
+    review_uncertain_page()
