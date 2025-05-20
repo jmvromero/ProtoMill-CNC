@@ -160,6 +160,9 @@ class ProtoMillApp(ctk.CTk):
         self.slideshow_timer = self.after(3000, self.update_slideshow_content)
 
     def launch_bCNC(self):
+        # Start serial bridge in background
+        subprocess.Popen(["python3", "serial_bridge.py"])
+        # Launch bCNC as before
         subprocess.Popen(["bCNC"])
         self.reset_idle_timer()
 
