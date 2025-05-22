@@ -3,12 +3,12 @@ train: /content/drive/MyDrive/DsPCBSD+/Data_YOLO/images/train
 val: /content/drive/MyDrive/DsPCBSD+/Data_YOLO/images/val
 
 names:
-  0: sh
-  1: sp
-  2: sc
-  3: op
-  4: mb
-  5: hb
-  6: cs
-  7: cfo
-  8: bmfo
+  0: short
+  1: spur
+  2: spurious copper
+  3: open
+  4: mouse bite
+  5: hole breakout
+  6: conductor scratch
+  7: conductor foreign object
+  8: base material foreign object

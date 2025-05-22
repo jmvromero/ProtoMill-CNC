@@ -11,6 +11,17 @@ import plotly.express as px
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+CLASS_NAMES = {
+    0: "short",
+    1: "spur",
+    2: "spurious copper",
+    3: "open",
+    4: "mouse bite",
+    5: "hole breakout",
+    6: "conductor scratch",
+    7: "conductor foreign object",
+    8: "base material foreign object"
+}
 
 # Add after your existing session state initialization
 if "defect_data" not in st.session_state:
@@ -26,7 +37,7 @@ if "uncertain_samples" not in st.session_state:
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Path construction for GitHub compatibility
-model_path = os.path.join(script_dir, "train3", "weights", "best.pt")
+model_path = os.path.join(script_dir, "train_results", "weights", "best.pt")
 model = YOLO(model_path)
 
 ## Put this right after your imports
@@ -140,7 +151,7 @@ def capture_output_image_page():
                 continue  # Skip frames to reduce workload
 
             # Resize frame to reduce processing time
-            resized_frame = cv2.resize(frame, (640, 480))
+            resized_frame = cv2.resize(frame, (640, 640))
 
             # Pass the resized frame to YOLO
             yolo_results = model.predict(source=resized_frame, save=False, conf=0.25)
@@ -149,7 +160,7 @@ def capture_output_image_page():
             annotated_frame = yolo_results[0].plot()
 
             # Resize the annotated frame for Streamlit rendering
-            annotated_frame = cv2.resize(annotated_frame, (640, 480))
+            annotated_frame = cv2.resize(annotated_frame, (640, 640))
 
             # Update the live feed
             FRAME_WINDOW.image(annotated_frame, channels="BGR", use_container_width=True)
@@ -203,7 +214,7 @@ def capture_output_image_page():
 
             # Dynamic Scaling Based on Captured Image Dimensions
             image_height, image_width = cropped_bgr.shape[:2]
-            scaling_factor = min(image_width / 640, image_height / 480)
+            scaling_factor = min(image_width / 640, image_height / 640)
 
             # YOLO Prediction with Scaled Detection Results
             results = model.predict(source=cropped_bgr, save=False, conf=0.25)
@@ -211,8 +222,22 @@ def capture_output_image_page():
             if len(results[0].boxes) > 0:
                 annotated_cropped = results[0].plot(font_size=int(12 * scaling_factor))
 
+                # Initialize counters
+                defect_counts = {name: 0 for name in CLASS_NAMES.values()}
+                type_details = []
+
                 # Data collection
                 for box in results[0].boxes:
+                    class_id = int(box.cls)
+                    defect_type = CLASS_NAMES.get(class_id, "unknown")
+                    confidence = float(box.conf)
+
+                    # Update counts
+                    defect_counts[defect_type] += 1
+
+                    # Store details for logging
+                    type_details.append(f"{defect_type} ({confidence:.2f})")
+
                     # In your detection loop where you add new defects:
                     new_row = {
                         "timestamp": datetime.now().isoformat(),
@@ -239,7 +264,26 @@ def capture_output_image_page():
 
                 st.image(annotated_cropped, caption="Detected Defects on Cropped Image",
                          use_container_width=True)
-                st.write(f"Detected Defects: {len(results[0].boxes)}")
+                # Show summary with types
+                st.write(f"**Total Detected Defects:** {len(results[0].boxes)}")
+                st.write("**Defect Breakdown:**")
+
+                # Create two columns for better layout
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    # Detailed list
+                    st.write("Detected defects:")
+                    for detail in type_details:
+                        st.write(f"- {detail}")
+
+                with col2:
+                    # Count summary
+                    st.write("Defect counts:")
+                    for defect, count in defect_counts.items():
+                        if count > 0:
+                            st.write(f"- {defect}: {count}")
+
             else:
                 st.info("No defects detected in the cropped image.")
 
@@ -248,7 +292,6 @@ def capture_output_image_page():
     if next_button:
         st.session_state.page = "home"
         st.rerun()
-
 
 def analytics_page():
     st.title("Defect Analytics Dashboard")
@@ -279,16 +322,40 @@ def analytics_page():
         st.warning("No defect data collected yet!")
         return
 
+    DEFECT_MAP = {
+        0: "short",
+        1: "spur",
+        2: "spurious copper",
+        3: "open",
+        4: "mouse bite",
+        5: "hole breakout",
+        6: "conductor scratch",
+        7: "conductor foreign object",
+        8: "base material foreign object"
+    }
+
+    # Create a modified copy for visualization
+    df = st.session_state.defect_data.copy()
+
+    # Convert numerical types to human-readable names
+    df['defect_type'] = df['defect_type'].apply(
+        lambda x: DEFECT_MAP[int(x)] if str(x).isdigit() else x
+    )
+
     # Your existing visualization code remains the same...
-    defect_counts = st.session_state.defect_data["defect_type"].value_counts()
+    # Modified visualization code
     st.subheader("Defect Distribution")
-    fig = px.bar(defect_counts, x=defect_counts.index, y=defect_counts.values)
+    defect_counts = df["defect_type"].value_counts()
+    fig = px.bar(defect_counts,
+                 x=defect_counts.index,
+                 y=defect_counts.values,
+                 labels={'x': 'Defect Type', 'y': 'Count'})
     st.plotly_chart(fig)
 
     # Temporal Trends
     st.subheader("Defect Trends Over Time")
-    temporal_data = st.session_state.defect_data.groupby(
-        [pd.to_datetime(st.session_state.defect_data["timestamp"]).dt.date, "defect_type"]
+    temporal_data = df.groupby(
+        [pd.to_datetime(df["timestamp"]).dt.date, "defect_type"]
     ).size().unstack()
     st.line_chart(temporal_data)
 
