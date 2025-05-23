@@ -82,7 +82,7 @@ class ProtoMillApp(ctk.CTk):
     def create_widgets(self):
         # Title label
         title_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        title_frame.pack(pady=(20, 40))
+        title_frame.pack(pady=(40, 40))
 
         ctk.CTkLabel(title_frame, text="ProtoMill CNC",
                      font=("Montserrat Bold", 48, "bold"),
@@ -107,7 +107,7 @@ class ProtoMillApp(ctk.CTk):
 
         for col, (text, img, cmd) in enumerate(buttons):
             ctk.CTkButton(button_frame, text=text, font=("Montserrat SemiBold", 28),
-                          image=img, compound="top", width=300, height=300,
+                          image=img, compound="top", width=300, height=400,
                           corner_radius=24, fg_color="white", text_color=self.secondary_color,
                           hover_color="#F3F4F6", command=cmd
                           ).grid(row=0, column=col, padx=20, pady=20, sticky="nsew")

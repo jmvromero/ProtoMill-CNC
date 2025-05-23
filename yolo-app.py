@@ -125,167 +125,124 @@ def capture_output_image_page():
         st.session_state.page = "home"
         st.rerun()
 
-    mode = st.radio("Choose a mode:", ["Real-Time Detection", "Capture/Upload Image"])
 
-    if mode == "Real-Time Detection":
-        st.subheader("Real-Time YOLOv8 PCB Defect Detection")
+    st.subheader("Capture or Upload PCB Output Image")
 
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            st.error("Unable to access the webcam.")
-            return
+    # Camera input for image capture
+    st.subheader("Capture Image from Camera")
+    camera_image = st.camera_input("Capture Output Image from Camera")
 
-        FRAME_WINDOW = st.image([])
+    # File uploader for image uploading
+    st.subheader("Or Upload an Image")
+    uploaded_image = st.file_uploader("Upload your output image (e.g., PNG, JPG, JPEG):",
+                                      type=["png", "jpg", "jpeg"])
 
-        frame_count = 0
-        skip_frames = 3  # Process every third frame
+    # Check if camera image or uploaded image is provided
+    if camera_image or uploaded_image or "captured_frame" in st.session_state:
+        st.subheader("Selected PCB Image")
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                st.warning("Unable to capture a frame from the webcam.")
-                break
+        if camera_image:
+            image = Image.open(camera_image)
+            st.write("Image captured using the camera.")
+        elif uploaded_image:
+            image = Image.open(uploaded_image)
+            st.write("Image uploaded successfully.")
+        else:
+            image = st.session_state.captured_frame
+            st.write("Using the captured frame from Real-Time Detection.")
 
-            frame_count += 1
-            if frame_count % skip_frames != 0:
-                continue  # Skip frames to reduce workload
+        st.image(image, caption="Selected Image", use_container_width=True)
+        st.session_state.output_img = image
 
-            # Resize frame to reduce processing time
-            resized_frame = cv2.resize(frame, (640, 640))
+        # Cropping functionality
+        st.subheader("Crop the Image")
+        cropped_image = st_cropper(
+            st.session_state.output_img,
+            realtime_update=True,
+            box_color="blue",
+            aspect_ratio=None
+        )
+        st.subheader("Cropped Image")
+        st.image(cropped_image, caption="Cropped PCB Image", use_container_width=True)
 
-            # Pass the resized frame to YOLO
-            yolo_results = model.predict(source=resized_frame, save=False, conf=0.25)
+        st.subheader("Run YOLOv8 Detection on Cropped Image")
+        cropped_np = np.array(cropped_image)
+        cropped_bgr = cv2.cvtColor(cropped_np, cv2.COLOR_RGB2BGR)
 
-            # Annotate the frame with detection results
-            annotated_frame = yolo_results[0].plot()
+        # Dynamic Scaling Based on Captured Image Dimensions
+        image_height, image_width = cropped_bgr.shape[:2]
+        scaling_factor = min(image_width / 640, image_height / 640)
 
-            # Resize the annotated frame for Streamlit rendering
-            annotated_frame = cv2.resize(annotated_frame, (640, 640))
+        # YOLO Prediction with Scaled Detection Results
+        results = model.predict(source=cropped_bgr, save=False, conf=0.25)
 
-            # Update the live feed
-            FRAME_WINDOW.image(annotated_frame, channels="BGR", use_container_width=True)
+        if len(results[0].boxes) > 0:
+            annotated_cropped = results[0].plot(font_size=int(12 * scaling_factor))
 
-        cap.release()
-        cv2.destroyAllWindows()
+            # Initialize counters
+            defect_counts = {name: 0 for name in CLASS_NAMES.values()}
+            type_details = []
 
-    elif mode == "Capture/Upload Image":
-        st.subheader("Capture or Upload PCB Output Image")
+            # Data collection
+            for box in results[0].boxes:
+                class_id = int(box.cls)
+                defect_type = CLASS_NAMES.get(class_id, "unknown")
+                confidence = float(box.conf)
 
-        # Camera input for image capture
-        st.subheader("Capture Image from Camera")
-        camera_image = st.camera_input("Capture Output Image from Camera")
+                # Update counts
+                defect_counts[defect_type] += 1
 
-        # File uploader for image uploading
-        st.subheader("Or Upload an Image")
-        uploaded_image = st.file_uploader("Upload your output image (e.g., PNG, JPG, JPEG):",
-                                          type=["png", "jpg", "jpeg"])
+                # Store details for logging
+                type_details.append(f"{defect_type} ({confidence:.2f})")
 
-        # Check if camera image or uploaded image is provided
-        if camera_image or uploaded_image or "captured_frame" in st.session_state:
-            st.subheader("Selected PCB Image")
+                # In your detection loop where you add new defects:
+                new_row = {
+                    "timestamp": datetime.now().isoformat(),
+                    "defect_type": model.names[int(box.cls)],
+                    "confidence": float(box.conf),
+                    "location_x": int((box.xywh[0][0] + box.xywh[0][2] / 2).item()),
+                    "location_y": int((box.xywh[0][1] + box.xywh[0][3] / 2).item()),
+                    "image_path": f"defects/{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+                }
+                st.session_state.defect_data = pd.concat(
+                    [st.session_state.defect_data, pd.DataFrame([new_row])],
+                    ignore_index=True
+                )
+                save_defect_data()  # Add this right after adding new data
 
-            if camera_image:
-                image = Image.open(camera_image)
-                st.write("Image captured using the camera.")
-            elif uploaded_image:
-                image = Image.open(uploaded_image)
-                st.write("Image uploaded successfully.")
-            else:
-                image = st.session_state.captured_frame
-                st.write("Using the captured frame from Real-Time Detection.")
+                # Flag low-confidence samples for review
+                if float(box.conf) < 0.4:
+                    # Create annotated image for review
+                    annotated_img = results[0].plot()
+                    st.session_state.uncertain_samples.append({
+                        "image": annotated_img,  # Store the annotated image
+                        "prediction": new_row
+                    })
 
-            st.image(image, caption="Selected Image", use_container_width=True)
-            st.session_state.output_img = image
+            st.image(annotated_cropped, caption="Detected Defects on Cropped Image",
+                     use_container_width=True)
+            # Show summary with types
+            st.write(f"**Total Detected Defects:** {len(results[0].boxes)}")
+            st.write("**Defect Breakdown:**")
 
-            # Cropping functionality
-            st.subheader("Crop the Image")
-            cropped_image = st_cropper(
-                st.session_state.output_img,
-                realtime_update=True,
-                box_color="blue",
-                aspect_ratio=None
-            )
-            st.subheader("Cropped Image")
-            st.image(cropped_image, caption="Cropped PCB Image", use_container_width=True)
+            # Create two columns for better layout
+            col1, col2 = st.columns(2)
 
-            st.subheader("Run YOLOv8 Detection on Cropped Image")
-            cropped_np = np.array(cropped_image)
-            cropped_bgr = cv2.cvtColor(cropped_np, cv2.COLOR_RGB2BGR)
+            with col1:
+                # Detailed list
+                st.write("Detected defects:")
+                for detail in type_details:
+                    st.write(f"- {detail}")
 
-            # Dynamic Scaling Based on Captured Image Dimensions
-            image_height, image_width = cropped_bgr.shape[:2]
-            scaling_factor = min(image_width / 640, image_height / 640)
+            with col2:
+                # Count summary
+                st.write("Defect counts:")
+                for defect, count in defect_counts.items():
+                    if count > 0:
+                        st.write(f"- {defect}: {count}")
 
-            # YOLO Prediction with Scaled Detection Results
-            results = model.predict(source=cropped_bgr, save=False, conf=0.25)
-
-            if len(results[0].boxes) > 0:
-                annotated_cropped = results[0].plot(font_size=int(12 * scaling_factor))
-
-                # Initialize counters
-                defect_counts = {name: 0 for name in CLASS_NAMES.values()}
-                type_details = []
-
-                # Data collection
-                for box in results[0].boxes:
-                    class_id = int(box.cls)
-                    defect_type = CLASS_NAMES.get(class_id, "unknown")
-                    confidence = float(box.conf)
-
-                    # Update counts
-                    defect_counts[defect_type] += 1
-
-                    # Store details for logging
-                    type_details.append(f"{defect_type} ({confidence:.2f})")
-
-                    # In your detection loop where you add new defects:
-                    new_row = {
-                        "timestamp": datetime.now().isoformat(),
-                        "defect_type": model.names[int(box.cls)],
-                        "confidence": float(box.conf),
-                        "location_x": int((box.xywh[0][0] + box.xywh[0][2] / 2).item()),
-                        "location_y": int((box.xywh[0][1] + box.xywh[0][3] / 2).item()),
-                        "image_path": f"defects/{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-                    }
-                    st.session_state.defect_data = pd.concat(
-                        [st.session_state.defect_data, pd.DataFrame([new_row])],
-                        ignore_index=True
-                    )
-                    save_defect_data()  # Add this right after adding new data
-
-                    # Flag low-confidence samples for review
-                    if float(box.conf) < 0.4:
-                        # Create annotated image for review
-                        annotated_img = results[0].plot()
-                        st.session_state.uncertain_samples.append({
-                            "image": annotated_img,  # Store the annotated image
-                            "prediction": new_row
-                        })
-
-                st.image(annotated_cropped, caption="Detected Defects on Cropped Image",
-                         use_container_width=True)
-                # Show summary with types
-                st.write(f"**Total Detected Defects:** {len(results[0].boxes)}")
-                st.write("**Defect Breakdown:**")
-
-                # Create two columns for better layout
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    # Detailed list
-                    st.write("Detected defects:")
-                    for detail in type_details:
-                        st.write(f"- {detail}")
-
-                with col2:
-                    # Count summary
-                    st.write("Defect counts:")
-                    for defect, count in defect_counts.items():
-                        if count > 0:
-                            st.write(f"- {defect}: {count}")
-
-            else:
-                st.info("No defects detected in the cropped image.")
+        else:
+            st.info("No defects detected in the cropped image.")
 
     # Next Button to go to the Template Image Upload page
     next_button = st.button("Continue to home page")
