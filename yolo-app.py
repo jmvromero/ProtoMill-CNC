@@ -125,63 +125,92 @@ def capture_output_image_page():
         st.session_state.page = "home"
         st.rerun()
 
+    # Initialize session state
+    if 'camera_active' not in st.session_state:
+        st.session_state.camera_active = False
+    if 'captured_frame' not in st.session_state:
+        st.session_state.captured_frame = None
+    if 'output_img' not in st.session_state:
+        st.session_state.output_img = None
 
-    st.subheader("Capture or Upload PCB Output Image")
+    st.subheader("Capture PCB Output Image")
 
-    # Camera input for image capture
-    st.subheader("Capture Image from Camera")
-    camera_image = st.camera_input("Capture Output Image from Camera")
+    # Camera control buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Start Camera"):
+            st.session_state.camera_active = True
+    with col2:
+        if st.button("Stop Camera"):
+            st.session_state.camera_active = False
+            st.session_state.captured_frame = None
 
-    if camera_image is not None:
-        # Store the raw camera image bytes
-        st.session_state.camera_image = camera_image
-
-        # Convert to PIL Image for processing
-        st.session_state.output_img = Image.open(camera_image)
-        st.success("Image captured successfully!")
-
-    # Option 2: Custom OpenCV capture (alternative)
-    if st.button("Alternative Capture Method"):
+    # Camera capture section
+    if st.session_state.camera_active:
         cap = cv2.VideoCapture(0)
-        ret, frame = cap.read()
-        cap.release()
+        FRAME_WINDOW = st.image([])
 
-        if ret:
-            # Store both OpenCV frame and PIL Image
-            st.session_state.camera_image = frame  # Raw OpenCV frame
-            st.session_state.output_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        # Capture and clear buttons
+        capture_col, clear_col = st.columns(2)
+        with capture_col:
+            if st.button("Take Photo"):
+                ret, frame = cap.read()
+                if ret:
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    st.session_state.captured_frame = Image.fromarray(frame_rgb)
+                    st.session_state.output_img = st.session_state.captured_frame
+                    st.session_state.camera_active = False
+                    st.success("Photo captured!")
+                cap.release()
 
+        with clear_col:
+            if st.button("Clear Photo"):
+                st.session_state.captured_frame = None
+                st.session_state.output_img = None
+                st.session_state.camera_active = False
 
-    # File uploader for image uploading
+        # Show live feed
+        while st.session_state.camera_active and cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                st.error("Failed to capture frame")
+                break
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            FRAME_WINDOW.image(frame)
+
+        if 'cap' in locals():
+            cap.release()
+
+    # File uploader as alternative
     st.subheader("Or Upload an Image")
-    uploaded_image = st.file_uploader("Upload your output image (e.g., PNG, JPG, JPEG):",
+    uploaded_image = st.file_uploader("Upload PCB image (PNG, JPG, JPEG):",
                                       type=["png", "jpg", "jpeg"])
 
-    # Check if camera image or uploaded image is provided
-    if camera_image or uploaded_image or "captured_frame" in st.session_state:
-        st.subheader("Selected PCB Image")
+    # Process whichever image is available (camera or upload)
+    current_image = None
+    if st.session_state.captured_frame is not None:
+        current_image = st.session_state.captured_frame
+        st.subheader("Captured PCB Image")
+    elif uploaded_image is not None:
+        current_image = Image.open(uploaded_image)
+        st.subheader("Uploaded PCB Image")
 
-        if camera_image:
-            image = Image.open(camera_image)
-            st.write("Image captured using the camera.")
-        elif uploaded_image:
-            image = Image.open(uploaded_image)
-            st.write("Image uploaded successfully.")
-        else:
-            image = st.session_state.captured_frame
-            st.write("Using the captured frame from Real-Time Detection.")
+    if current_image is not None:
+        st.image(current_image, caption="Selected Image", use_container_width=True)
+        st.session_state.output_img = current_image
 
-        st.image(image, caption="Selected Image", use_container_width=True)
-        st.session_state.output_img = image
+        # Rest of your existing processing code...
+        # [Keep all your cropping and YOLO detection code exactly as is]
 
         # Cropping functionality
         st.subheader("Crop the Image")
         cropped_image = st_cropper(
-            st.session_state.output_img,
+            current_image,
             realtime_update=True,
             box_color="blue",
             aspect_ratio=None
         )
+
         st.subheader("Cropped Image")
         st.image(cropped_image, caption="Cropped PCB Image", use_container_width=True)
 
