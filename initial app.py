@@ -102,7 +102,7 @@ class ProtoMillApp(ctk.CTk):
         buttons = [
             ("PCB Design", self.pcb_img, self.show_pcb_interface),
             ("bCNC", self.cnc_img, self.launch_bCNC),
-            ("Defect\nDetection", self.dd_img, self.launch_defect_detection)
+            ("InspectMill", self.dd_img, self.launch_defect_detection)
         ]
 
         for col, (text, img, cmd) in enumerate(buttons):
@@ -164,24 +164,39 @@ class ProtoMillApp(ctk.CTk):
     def create_new_interface(self):
         self.create_new_frame = ctk.CTkFrame(self, fg_color="transparent")
 
+        # Title
         ctk.CTkLabel(self.create_new_frame, text="Create New Design",
                      font=("Montserrat Bold", 48),
                      text_color=self.secondary_color).pack(pady=(20, 40))
 
-        options_frame = ctk.CTkFrame(self.create_new_frame, fg_color="transparent")
-        options_frame.pack(expand=True, fill="both", padx=100, pady=50)
+        # Scrollable container for buttons
+        scroll_frame = ctk.CTkScrollableFrame(self.create_new_frame, fg_color="transparent")
+        scroll_frame.pack(expand=True, fill="both", padx=50, pady=20)
 
-        ctk.CTkButton(options_frame, text="Open KiCAD",
-                      font=("Montserrat SemiBold", 28), height=100,
-                      command=self.launch_kicad).pack(fill="x", pady=20)
-        ctk.CTkButton(options_frame, text="Open EasyEDA",
-                      font=("Montserrat SemiBold", 28), height=100,
-                      command=self.launch_easyeda).pack(fill="x", pady=20)
+        # Buttons grid
+        button_options = [
+            ("Open KiCAD", self.launch_kicad),
+            ("Open EasyEDA", self.launch_easyeda),
+            ("Open FlatCAM", self.launch_flatcam)
+        ]
 
-        ctk.CTkButton(self.create_new_frame, text="Back",
+        for row, (text, command) in enumerate(button_options):
+            btn = ctk.CTkButton(scroll_frame,
+                                text=text,
+                                font=("Montserrat SemiBold", 28),
+                                height=100,
+                                command=command)
+            btn.pack(fill="x", pady=10, expand=True)
+
+        # Back button container (outside scroll frame)
+        back_frame = ctk.CTkFrame(self.create_new_frame, fg_color="transparent")
+        back_frame.pack(side="bottom", pady=20, fill="x")
+
+        ctk.CTkButton(back_frame,
+                      text="Back",
                       font=("Montserrat", 16),
                       command=lambda: self.switch_frame(self.pcb_frame)
-                      ).pack(side="bottom", pady=20)
+                      ).pack(pady=10)
 
     def bind_activity_events(self):
         for event in ['<Motion>', '<KeyPress>', '<ButtonPress>']:
@@ -241,7 +256,6 @@ class ProtoMillApp(ctk.CTk):
             filename = url.split("/")[-1]
             with open(filename, 'wb') as f:
                 f.write(response.content)
-            subprocess.Popen(["bCNC", filename])
             messagebox.showinfo("Success", f"Downloaded {filename} successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"Download failed: {str(e)}")
@@ -259,6 +273,13 @@ class ProtoMillApp(ctk.CTk):
         subprocess.Popen(["python3", "serial_bridge.py"])
         subprocess.Popen(["bCNC"])
         self.reset_idle_timer()
+
+    # Add this new method for launching FlatCAM
+    def launch_flatcam(self):
+        try:
+            subprocess.Popen(["flatcam"])
+        except FileNotFoundError:
+            messagebox.showerror("Error", "FlatCAM not found. Please install FlatCAM first.")
 
     def launch_defect_detection(self):
         subprocess.Popen(["streamlit", "run", "yolo-app.py"])
