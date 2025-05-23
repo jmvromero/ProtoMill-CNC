@@ -132,6 +132,26 @@ def capture_output_image_page():
     st.subheader("Capture Image from Camera")
     camera_image = st.camera_input("Capture Output Image from Camera")
 
+    if camera_image is not None:
+        # Store the raw camera image bytes
+        st.session_state.camera_image = camera_image
+
+        # Convert to PIL Image for processing
+        st.session_state.output_img = Image.open(camera_image)
+        st.success("Image captured successfully!")
+
+    # Option 2: Custom OpenCV capture (alternative)
+    if st.button("Alternative Capture Method"):
+        cap = cv2.VideoCapture(0)
+        ret, frame = cap.read()
+        cap.release()
+
+        if ret:
+            # Store both OpenCV frame and PIL Image
+            st.session_state.camera_image = frame  # Raw OpenCV frame
+            st.session_state.output_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+
     # File uploader for image uploading
     st.subheader("Or Upload an Image")
     uploaded_image = st.file_uploader("Upload your output image (e.g., PNG, JPG, JPEG):",
