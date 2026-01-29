@@ -218,6 +218,9 @@ def capture_output_image_page():
         cropped_np = np.array(cropped_image)
         cropped_bgr = cv2.cvtColor(cropped_np, cv2.COLOR_RGB2BGR)
 
+        st.subheader("Preprocessed Image")
+        st.image(cropped_bgr, caption="Preprocessed PCB Image", use_container_width=True)
+
         # Dynamic Scaling Based on Captured Image Dimensions
         image_height, image_width = cropped_bgr.shape[:2]
         scaling_factor = min(image_width / 640, image_height / 640)
